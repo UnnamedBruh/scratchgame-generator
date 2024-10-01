@@ -194,6 +194,7 @@ async function generate(pr) {
 		})
 		projectData.targets[0].blocks = `{"d":{"opcode":"event_whenflagclicked","next":"a","parent":null,"inputs":{},"fields":{},"shadow":false,"topLevel":true,"x":0,"y":0},"b":{"opcode":"sound_playuntildone","next":null,"parent":"a","inputs":{"SOUND_MENU":[1,"e"]},"fields":{},"shadow":false,"topLevel":false},"e":{"opcode":"sound_sounds_menu","next":null,"parent":"b","inputs":{},"fields":{"SOUND_MENU":["audio",null]},"shadow":true,"topLevel":false},"a":{"opcode":"control_forever","next":null,"parent":"d","inputs":{"SUBSTACK":[2,"b"]},"fields":{},"shadow":false,"topLevel":false},"f":{"opcode":"event_whenflagclicked","next":"c","parent":null,"inputs":{},"fields":{},"shadow":false,"topLevel":true,"x":0,"y":20},"c":{"opcode":"control_forever","next":null,"parent":"f","inputs":{"SUBSTACK":[2,"g"]},"fields":{},"shadow":false,"topLevel":false},"g":{"opcode":"looks_nextbackdrop","next":null,"parent":"c","inputs":{},"fields":{},"shadow":false,"topLevel":false}}`
 		zip.file(files.wav[0], Assets.wav.static(3))
+		zip.file("project.json", JSON.stringify(projectData))
 		zip.generateAsync({ type: "blob" }).then(function(content) {
                 	const link = document.createElement("a")
 			link.href = URL.createObjectURL(content)
