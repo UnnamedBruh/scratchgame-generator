@@ -156,7 +156,16 @@ async function generate(pr) {
 				videoState: "on",
 				videoTransparency: 50
 			}
-		]
+		],
+		meta: {
+			semver: "3.0.0",
+			vm: "0.2.0",
+			agent: "",
+			platform: {
+				name: "TurboWarp",
+				url: "https://turbowarp.org"
+			}
+		}
 	}
 	if (/^(a\s*(digitally)?\s*static\s*(display|video|film)?)$/.test(pr)) {
 		const staticFrames = 4 + Math.round(Math.random() * 5);
