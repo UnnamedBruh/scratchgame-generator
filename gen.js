@@ -158,7 +158,7 @@ async function generate(pr) {
 			}
 		]
 	}
-	if (/^(a\s*(digitally)?\s*static\s*(display|video|film)?))$/.test(pr)) {
+	if (/^(a\s*(digitally)?\s*static\s*(display|video|film)?)$/.test(pr)) {
 		const staticFrames = 4 + Math.round(Math.random() * 5);
 		JSZip.file(files.png[0], new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]));
 		for (let i = 0; i < staticFrames; i++) {
