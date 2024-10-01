@@ -69,118 +69,85 @@ const Assets = {
 		}
 	},
 png: {
-	static: function() {
-		// Width and height of the PNG image
-		const width = 480;
-		const height = 360;
-		const bytesPerPixel = 4; // RGBA
-		const len = width * height * bytesPerPixel;
+    static: function() {
+        // Dimensions for the PNG image
+        const width = 480;
+        const height = 360;
 
-		const array = new Uint8Array(len);
+        // Create the pixel data (RGBA)
+        const pixelData = new Uint8Array(width * height * 4);
+        for (let i = 0; i < pixelData.length; i += 4) {
+            const color = Math.round(Math.random() * 255);
+            pixelData[i] = color;     // Red
+            pixelData[i + 1] = color; // Green
+            pixelData[i + 2] = color; // Blue
+            pixelData[i + 3] = 255;   // Alpha (fully opaque)
+        }
 
-		// Generate random pixel data
-		for (let i = 0; i < len; i += bytesPerPixel) {
-			const gray = Math.round(Math.random() * 255); // Grayscale value
-			array[i] = gray; // Red
-			array[i + 1] = gray; // Green
-			array[i + 2] = gray; // Blue
-			array[i + 3] = 255; // Alpha (fully opaque)
-		}
+        // Create PNG
+        const png = this.createPNG(pixelData, width, height);
+        return png;
+    },
+    createPNG: function(data, width, height) {
+        const signature = new Uint8Array([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+        
+        // IHDR chunk
+        const ihdrData = new Uint8Array(13);
+        const view = new DataView(ihdrData.buffer);
+        view.setUint32(0, width, false);   // Width
+        view.setUint32(4, height, false);  // Height
+        ihdrData[8] = 8; // Bit depth
+        ihdrData[9] = 6; // Color type (RGBA)
+        ihdrData[10] = 0; // Compression method
+        ihdrData[11] = 0; // Filter method
+        ihdrData[12] = 0; // Interlace method
+        const ihdrChunk = this.createChunk(ihdrData, 'IHDR');
 
-		// Create PNG file data
-		const pngHeader = [
-			0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature
-		];
-		const ihdrChunk = this.createIHDRChunk(width, height);
-		const idatChunk = this.createIDATChunk(array);
-		const iendChunk = this.createIENDChunk();
+        // IDAT chunk
+        const idatData = this.compressData(data); // This should be a function that compresses pixel data
+        const idatChunk = this.createChunk(idatData, 'IDAT');
 
-		const pngData = new Uint8Array(
-			pngHeader.concat(
-				ihdrChunk,
-				idatChunk,
-				iendChunk
-			)
-		);
+        // IEND chunk
+        const iendChunk = this.createChunk(new Uint8Array(0), 'IEND');
 
-		return pngData;
-	},
+        // Combine all parts into one array
+        const pngData = new Uint8Array(signature.length + ihdrChunk.length + idatChunk.length + iendChunk.length);
+        pngData.set(signature, 0);
+        pngData.set(ihdrChunk, signature.length);
+        pngData.set(idatChunk, signature.length + ihdrChunk.length);
+        pngData.set(iendChunk, signature.length + ihdrChunk.length + idatChunk.length);
 
-	createIHDRChunk: function(width, height) {
-		const chunkType = [0x49, 0x48, 0x44, 0x52]; // IHDR
-		const widthBytes = this.intToBytes(width);
-		const heightBytes = this.intToBytes(height);
-		const bitDepth = 8; // 8 bits per channel
-		const colorType = 6; // RGBA
-		const compressionMethod = 0; // Deflate compression
-		const filterMethod = 0; // No filter
-		const interlaceMethod = 0; // No interlace
+        return pngData;
+    },
+    createChunk: function(data, type) {
+        const length = data.length;
+        const chunk = new Uint8Array(length + 12);
+        const view = new DataView(chunk.buffer);
 
-		const ihdrData = [
-			// IHDR chunk length (13 bytes)
-			0x00, 0x00, 0x00, 0x0D,
-			...widthBytes,
-			...heightBytes,
-			bitDepth,
-			colorType,
-			compressionMethod,
-			filterMethod,
-			interlaceMethod
-		];
+        view.setUint32(0, length, false); // Chunk length
+        for (let i = 0; i < type.length; i++) {
+            view.setUint8(4 + i, type.charCodeAt(i)); // Chunk type
+        }
+        chunk.set(data, 8); // Chunk data
+        const crc = this.crc32(chunk.subarray(4, 8 + length));
+        view.setUint32(length + 8, crc, false); // Chunk CRC
 
-		const ihdrCrc = this.calculateCRC(ihdrData.slice(4, ihdrData.length));
-		return [...ihdrData, ...ihdrCrc];
-	},
-	createIDATChunk: function(data) {
-		const chunkType = [0x49, 0x44, 0x41, 0x54]; // IDAT
-		const compressedData = pako.deflate(data); // Compress using pako library
-		const chunkLength = this.intToBytes(compressedData.length);
-
-		const idatChunk = [
-			...chunkLength,
-			...chunkType,
-			...compressedData,
-		];
-
-		const idatCrc = this.calculateCRC(idatChunk.slice(4, idatChunk.length));
-		return [...idatChunk, ...idatCrc];
-	},
-
-	createIENDChunk: function() {
-		const chunkType = [0x49, 0x45, 0x4E, 0x44]; // IEND
-		const iendData = [
-			0x00, 0x00, 0x00, 0x00, // IEND chunk length (0 bytes)
-			...chunkType
-		];
-		const iendCrc = this.calculateCRC(iendData.slice(4, iendData.length));
-		return [...iendData, ...iendCrc];
-	},
-
-	intToBytes: function(num) {
-		return [
-			(num >> 24) & 0xFF,
-			(num >> 16) & 0xFF,
-			(num >> 8) & 0xFF,
-			num & 0xFF
-		];
-	},
-
-	calculateCRC: function(data) {
-		// Implement a CRC calculation for the chunk data
-		let crc = 0xFFFFFFFF;
-		for (let i = 0; i < data.length; i++) {
-			crc ^= data[i];
-			for (let j = 0; j < 8; j++) {
-				crc = (crc >> 1) ^ ((crc & 1) ? 0xEDB88320 : 0);
-			}
-		}
-		return [
-			(crc & 0xFF000000) >>> 24,
-			(crc & 0x00FF0000) >>> 16,
-			(crc & 0x0000FF00) >>> 8,
-			(crc & 0x000000FF)
-		];
-	}
+        return chunk;
+    },
+    crc32: function(data) {
+        // CRC32 calculation (this is a placeholder, you would implement a proper CRC32 function)
+        let crc = 0xFFFFFFFF;
+        for (let i = 0; i < data.length; i++) {
+            crc ^= data[i];
+            for (let j = 0; j < 8; j++) {
+                crc = (crc >>> 1) ^ (0xEDB88320 & -(crc & 1));
+            }
+        }
+        return crc >>> 0;
+    },
+    compressData: function(data) {
+        return data; // You would return compressed data here
+    }
 }
 }
 const files = {
