@@ -68,17 +68,120 @@ const Assets = {
 			return new FloatExporter(new Float32Array(Math.floor(duration * 48000)).map(() => Math.random() * 2 - 1)).convertToWav();
 		}
 	},
-	png: {
-		static: function() {
-			// 691200, because Scratch uses a 480 X 360 stage, and .PNG files have four bytes of information about pixel data
-			const array = new Uint8Array(691200), len = 691200
-			for (let i = 0; i !== len; i += 4) {
-				array[i] = array[i + 1] = array[i + 2] = Math.round(Math.random() * 255)
-				array[i + 3] = 255
-			}
-			return array
+png: {
+	static: function() {
+		// Width and height of the PNG image
+		const width = 480;
+		const height = 360;
+		const bytesPerPixel = 4; // RGBA
+		const len = width * height * bytesPerPixel;
+
+		const array = new Uint8Array(len);
+
+		// Generate random pixel data
+		for (let i = 0; i < len; i += bytesPerPixel) {
+			const gray = Math.round(Math.random() * 255); // Grayscale value
+			array[i] = gray; // Red
+			array[i + 1] = gray; // Green
+			array[i + 2] = gray; // Blue
+			array[i + 3] = 255; // Alpha (fully opaque)
 		}
+
+		// Create PNG file data
+		const pngHeader = [
+			0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature
+		];
+		const ihdrChunk = this.createIHDRChunk(width, height);
+		const idatChunk = this.createIDATChunk(array);
+		const iendChunk = this.createIENDChunk();
+
+		const pngData = new Uint8Array(
+			pngHeader.concat(
+				ihdrChunk,
+				idatChunk,
+				iendChunk
+			)
+		);
+
+		return pngData;
+	},
+
+	createIHDRChunk: function(width, height) {
+		const chunkType = [0x49, 0x48, 0x44, 0x52]; // IHDR
+		const widthBytes = this.intToBytes(width);
+		const heightBytes = this.intToBytes(height);
+		const bitDepth = 8; // 8 bits per channel
+		const colorType = 6; // RGBA
+		const compressionMethod = 0; // Deflate compression
+		const filterMethod = 0; // No filter
+		const interlaceMethod = 0; // No interlace
+
+		const ihdrData = [
+			// IHDR chunk length (13 bytes)
+			0x00, 0x00, 0x00, 0x0D,
+			...widthBytes,
+			...heightBytes,
+			bitDepth,
+			colorType,
+			compressionMethod,
+			filterMethod,
+			interlaceMethod
+		];
+
+		const ihdrCrc = this.calculateCRC(ihdrData.slice(4, ihdrData.length));
+		return [...ihdrData, ...ihdrCrc];
+	},
+	createIDATChunk: function(data) {
+		const chunkType = [0x49, 0x44, 0x41, 0x54]; // IDAT
+		const compressedData = pako.deflate(data); // Compress using pako library
+		const chunkLength = this.intToBytes(compressedData.length);
+
+		const idatChunk = [
+			...chunkLength,
+			...chunkType,
+			...compressedData,
+		];
+
+		const idatCrc = this.calculateCRC(idatChunk.slice(4, idatChunk.length));
+		return [...idatChunk, ...idatCrc];
+	},
+
+	createIENDChunk: function() {
+		const chunkType = [0x49, 0x45, 0x4E, 0x44]; // IEND
+		const iendData = [
+			0x00, 0x00, 0x00, 0x00, // IEND chunk length (0 bytes)
+			...chunkType
+		];
+		const iendCrc = this.calculateCRC(iendData.slice(4, iendData.length));
+		return [...iendData, ...iendCrc];
+	},
+
+	intToBytes: function(num) {
+		return [
+			(num >> 24) & 0xFF,
+			(num >> 16) & 0xFF,
+			(num >> 8) & 0xFF,
+			num & 0xFF
+		];
+	},
+
+	calculateCRC: function(data) {
+		// Implement a CRC calculation for the chunk data
+		let crc = 0xFFFFFFFF;
+		for (let i = 0; i < data.length; i++) {
+			crc ^= data[i];
+			for (let j = 0; j < 8; j++) {
+				crc = (crc >> 1) ^ ((crc & 1) ? 0xEDB88320 : 0);
+			}
+		}
+		return [
+			(crc & 0xFF000000) >>> 24,
+			(crc & 0x00FF0000) >>> 16,
+			(crc & 0x0000FF00) >>> 8,
+			(crc & 0x000000FF)
+		];
 	}
+}
 }
 const files = {
 	wav: [
