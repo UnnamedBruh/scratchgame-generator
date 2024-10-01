@@ -1,3 +1,85 @@
+class FloatExporter {
+	constructor(audioData = new Float32Array([]), sampleRate = 48000) {
+		if (!(audioData instanceof Float32Array)) {
+			console.warn("The audioData must be a Float32Array. Otherwise, the audio data is automatically empty");
+			this.audioData = new Float32Array([]);
+		} else {
+			this.audioData = audioData;
+		}
+		if (typeof sampleRate !== "number") {
+			console.warn("The sample rate must be a number, not a '" + (typeof sampleRate) + "'")
+			sampleRate = 48000;
+		} else {
+			if (sampleRate === 0) {
+				console.warn("The sample rate must not be 0, which this problem unsolved can cause infinitely long audio")
+				sampleRate = 48000;
+			}
+			if (sampleRate < 0) console.warn("The sample rate cannot be ≤ 0, though this case is handled")
+		}
+		if (sampleRate % 1 !== 0) {
+			console.warn("The sample rate isn't rounded, but this case is handled")
+		}
+		this.sampleRate = Math.abs(Math.round(sampleRate));
+		this.backupData = new Float32Array(this.audioData);
+	}
+	convertToWav(exp = "blob") {
+		const numChannels = 1, ch1 = 32767, ch2 = 32768, ch3 = 0, ch4 = -1, ch5 = 1, len = this.audioData.length;
+		const len2 = len * 2;
+		const buffer = new ArrayBuffer(44 + len2);
+		const view = new DataView(buffer);
+		this.writeString(view, 0, 'RIFF');
+		view.setUint32(4, 36 + len2, true);
+		this.writeString(view, 8, 'WAVE');
+		this.writeString(view, 12, 'fmt ');
+		view.setUint32(16, 16, true);
+		view.setUint16(20, 1, true);
+		view.setUint16(22, numChannels, true);
+		view.setUint32(24, this.sampleRate, true);
+		view.setUint32(28, this.sampleRate * 2, true);
+		view.setUint16(32, 2, true);
+		view.setUint16(34, 16, true);
+		this.writeString(view, 36, 'data');
+		view.setUint32(40, len2, true);
+		let offset = 44, s;
+		for (let i = 0; i !== len; i++) {
+			s = Math.max(ch4, Math.min(ch5, this.audioData[i]));
+			view.setInt16(offset, s < ch3 ? s * ch2 : s * ch1, true);
+			offset += 2;
+		}
+		return new Uint8Array(buffer);
+	}
+	writeString(view, offset, string) {
+		for (let i = 0; i < string.length; i++) {
+			view.setUint8(offset + i, string.charCodeAt(i));
+		}
+	}
+	static sineWave(frequency, duration, sampleRate) {
+		const array = new Float32Array(Math.floor(duration * sampleRate))
+		const len = array.length, cache = 2 * Math.PI
+		for (let i = 0; i !== len; i++) {
+			array[i] = Math.sin((cache * frequency * i) / sampleRate)
+		}
+		return new FloatExporter(array, sampleRate)
+	}
+}
+const Assets = {
+	wav: {
+		static: function(duration) {
+			return new FloatExporter(new Float32Array(Math.floor(duration * 48000)).map(() => Math.random() * 2 - 1)).convertToWav();
+		}
+	},
+	png: {
+		static: function() {
+			// 691200, because Scratch uses a 480 X 360 stage, and .PNG files have four bytes of information about pixel data
+			const array = new Uint8Array(691200), len = 691200
+			for (let i = 0; i !== len; i += 4) {
+				array[i] = array[i + 1] = array[i + 2] = Math.round(Math.random() * 255)
+				array[i + 3] = 255
+			}
+			return array
+		}
+	}
+}
 const files = {
 	wav: [
 		"83a9787d4cb6f3b7632b4ddfebf74367.wav",
@@ -34,8 +116,86 @@ const files = {
 		"29ba1e881f6da473cbdfeef4d90611be.png"
 	]
 }
-const AudioGeneration = {
-	static: function() {
-		
+async function wait(ms) {
+	return new Promise(resolve => {
+		setTimeout(() => resolve(), ms)
+	})
+}
+async function generate(pr) {
+	const JSZip = new JSZip();
+	pr = pr || prompt("Enter in a prompt.")
+	const projectData = {
+		monitors: [],
+		variables: [],
+		extensions: [],
+		targets: [
+			{
+				blocks: {},
+				broadcasts: {},
+				comments: {},
+				variables: {},
+				lists: {},
+				costumes: [
+					{
+						assetId: files.png[0].split(".")[0],
+						md5ext: files.png[0],
+						dataFormat: ".png",
+						name: "background",
+						rotationCenterX: 0,
+						rotationCenterY: 0
+					}
+				],
+				sounds: [],
+				name: "Stage",
+				isStage: true,
+				layerOrder: 0,
+				currentCostume: 0,
+				tempo: 0,
+				textToSpeechLanguage: null,
+				volume: 100,
+				videoState: "on",
+				videoTransparency: 50
+			}
+		]
+	}
+	if (/^(a\s*(digitally)?\s*static\s*(display|video|film)?))$/.test(pr)) {
+		const staticFrames = 4 + Math.round(Math.random() * 5);
+		JSZip.file(files.png[0], new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]));
+		for (let i = 0; i < staticFrames; i++) {
+			await wait(100)
+			JSZip.file(files.png[1 + i], await Assets.png.static())
+			projectData.targets[0].costumes.push({
+				assetId: files.png[i].split(".")[0],
+				md5ext: files.png[i],
+				dataFormat: ".png",
+				name: "frame" + i,
+				rotationCenterX: 0,
+				rotationCenterY: 0
+			})
+		}
+		await wait(100)
+		projectData.targets[0].sound.push({
+			assetId: files.wav[0].split(".")[0],
+			md5ext: files.wav[0],
+			dataFormat: ".wav",
+			format: "",
+			name: "audio",
+			rate: 48000,
+			sampleLength: 134000
+		})
+		projectData.targets[0].blocks = `{"d":{"opcode":"event_whenflagclicked","next":"a","parent":null,"inputs":{},"fields":{},"shadow":false,"topLevel":true,"x":0,"y":0},"b":{"opcode":"sound_playuntildone","next":null,"parent":"a","inputs":{"SOUND_MENU":[1,"e"]},"fields":{},"shadow":false,"topLevel":false},"e":{"opcode":"sound_sounds_menu","next":null,"parent":"b","inputs":{},"fields":{"SOUND_MENU":["audio",null]},"shadow":true,"topLevel":false},"a":{"opcode":"control_forever","next":null,"parent":"d","inputs":{"SUBSTACK":[2,"b"]},"fields":{},"shadow":false,"topLevel":false},"f":{"opcode":"event_whenflagclicked","next":"c","parent":null,"inputs":{},"fields":{},"shadow":false,"topLevel":true,"x":0,"y":20},"c":{"opcode":"control_forever","next":null,"parent":"f","inputs":{"SUBSTACK":[2,"g"]},"fields":{},"shadow":false,"topLevel":false},"g":{"opcode":"looks_nextbackdrop","next":null,"parent":"c","inputs":{},"fields":{},"shadow":false,"topLevel":false}}`
+		JSZip.file(files.wav[0], await Assets.png.static(2))
+		JSZip.generateAsync({ type: "blob" }).then(function(content) {
+                	const link = document.createElement("a")
+			link.href = URL.createObjectURL(content)
+			link.download = "working.sb3"
+			document.body.appendChild(link)
+			link.click();
+			document.body.removeChild(link)
+                })
+                .catch(function(err) {
+                    console.error("Error generating ZIP:", err);
+                });
 	}
 }
+generate()
