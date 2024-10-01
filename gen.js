@@ -174,7 +174,7 @@ async function generate(pr) {
 			})
 		}
 		await wait(100)
-		projectData.targets[0].sound.push({
+		projectData.targets[0].sounds.push({
 			assetId: files.wav[0].split(".")[0],
 			md5ext: files.wav[0],
 			dataFormat: ".wav",
