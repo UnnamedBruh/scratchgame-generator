@@ -163,7 +163,7 @@ async function generate(pr) {
 		zip.file(files.png[0], new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]));
 		for (let i = 0; i < staticFrames; i++) {
 			await wait(100)
-			zip.file(files.png[1 + i], await Assets.png.static())
+			zip.file(files.png[1 + i], Assets.png.static())
 			projectData.targets[0].costumes.push({
 				assetId: files.png[i].split(".")[0],
 				md5ext: files.png[i],
@@ -184,7 +184,7 @@ async function generate(pr) {
 			sampleLength: 134000
 		})
 		projectData.targets[0].blocks = `{"d":{"opcode":"event_whenflagclicked","next":"a","parent":null,"inputs":{},"fields":{},"shadow":false,"topLevel":true,"x":0,"y":0},"b":{"opcode":"sound_playuntildone","next":null,"parent":"a","inputs":{"SOUND_MENU":[1,"e"]},"fields":{},"shadow":false,"topLevel":false},"e":{"opcode":"sound_sounds_menu","next":null,"parent":"b","inputs":{},"fields":{"SOUND_MENU":["audio",null]},"shadow":true,"topLevel":false},"a":{"opcode":"control_forever","next":null,"parent":"d","inputs":{"SUBSTACK":[2,"b"]},"fields":{},"shadow":false,"topLevel":false},"f":{"opcode":"event_whenflagclicked","next":"c","parent":null,"inputs":{},"fields":{},"shadow":false,"topLevel":true,"x":0,"y":20},"c":{"opcode":"control_forever","next":null,"parent":"f","inputs":{"SUBSTACK":[2,"g"]},"fields":{},"shadow":false,"topLevel":false},"g":{"opcode":"looks_nextbackdrop","next":null,"parent":"c","inputs":{},"fields":{},"shadow":false,"topLevel":false}}`
-		zip.file(files.wav[0], await Assets.png.static(2))
+		zip.file(files.wav[0], Assets.wav.static(3))
 		zip.generateAsync({ type: "blob" }).then(function(content) {
                 	const link = document.createElement("a")
 			link.href = URL.createObjectURL(content)
